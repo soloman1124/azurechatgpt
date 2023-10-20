@@ -71,6 +71,39 @@ export const PromptDataGPT = async (props: PromptGPTProps) => {
   return new StreamingTextResponse(stream);
 };
 
+export const simplePromptDataGPT = async (query: string) => {
+  const chatModel = new ChatOpenAI({
+    temperature: 0,
+    streaming: true,
+  });
+
+  const relevantDocuments = await findRelevantDocuments(query);
+
+  const chain = loadQAMapReduceChain(chatModel, {
+    combinePrompt: defineSystemPrompt(),
+  });
+  const { stream, handlers } = LangChainStream();
+
+  const memory = buildMemory([]);
+
+  const { text: answer } = await chain.call(
+    {
+      input_documents: relevantDocuments,
+      question: query,
+      memory: memory,
+    },
+    [
+      {
+        ...handlers,
+        handleLLMNewToken: async (_token: string) => {
+          // this is to prevent generating content in the map phase
+        },
+      },
+    ]
+  )
+  return answer;
+};
+
 const findRelevantDocuments = async (query: string) => {
   const vectorStore = initVectorStore();
 
